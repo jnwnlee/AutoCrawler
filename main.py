@@ -31,6 +31,10 @@ class Sites:
     NAVER = 2
     GOOGLE_FULL = 3
     NAVER_FULL = 4
+    UNSPLASH = 5
+    UNSPLASH_FULL = 6
+    FLICKR = 7
+    FLICKR_FULL = 8
 
     @staticmethod
     def get_text(code):
@@ -42,18 +46,40 @@ class Sites:
             return 'google'
         elif code == Sites.NAVER_FULL:
             return 'naver'
+        elif code == Sites.UNSPLASH or code == Sites.UNSPLASH_FULL:
+            return 'unsplash'
+        elif code == Sites.FLICKR or code == Sites.FLICKR_FULL:
+            return 'flickr'
 
     @staticmethod
     def get_face_url(code):
-        if code == Sites.GOOGLE or Sites.GOOGLE_FULL:
+        if code == Sites.GOOGLE or code == Sites.GOOGLE_FULL:
             return "&tbs=itp:face"
-        if code == Sites.NAVER or Sites.NAVER_FULL:
+        if code == Sites.NAVER or code == Sites.NAVER_FULL:
             return "&face=1"
+        if code == Sites.UNSPLASH or code == Sites.UNSPLASH_FULL:
+            # raise RuntimeError("Face Detection not supported in unsplash.")
+            print("Face Detection not supported in unsplash - option ignored.")
+            return ""
+        if code == Sites.FLICKR or code == Sites.FLICKR_FULL:
+            print("Face Detection not supported in flickr - option ignored.")
+            return ""
+
+    @staticmethod
+    def get_ccl_url(code):
+        if code == Sites.GOOGLE or Sites.GOOGLE_FULL:
+            return "&tbs=il:cl"
+        if code == Sites.NAVER or Sites.NAVER_FULL:
+            return "&ccl=1"
+        if code == Sites.UNSPLASH or Sites.UNSPLASH_FULL:
+            return ""
+        if code == Sites.FLICKR or Sites.FLICKR_FULL:
+            return "&license=2%2C3%2C4%2C5%2C6%2C9"
 
 
 class AutoCrawler:
-    def __init__(self, skip_already_exist=True, n_threads=4, do_google=True, do_naver=True, download_path='download',
-                 full_resolution=False, face=False, no_gui=False, limit=0, proxy_list=None):
+    def __init__(self, skip_already_exist=True, n_threads=4, do_google=True, do_naver=True, do_unsplash=True, do_flickr=True,
+                 download_path='download', full_resolution=False, face=False, ccl=False, no_gui=False, limit=0, proxy_list=None):
         """
         :param skip_already_exist: Skips keyword already downloaded before. This is needed when re-downloading.
         :param n_threads: Number of threads to download.
@@ -71,9 +97,12 @@ class AutoCrawler:
         self.n_threads = n_threads
         self.do_google = do_google
         self.do_naver = do_naver
+        self.do_unsplash = do_unsplash
+        self.do_flickr = do_flickr
         self.download_path = download_path
         self.full_resolution = full_resolution
         self.face = face
+        self.ccl = ccl
         self.no_gui = no_gui
         self.limit = limit
         self.proxy_list = proxy_list if proxy_list and len(proxy_list) > 0 else None
@@ -217,6 +246,7 @@ class AutoCrawler:
     def download_from_site(self, keyword, site_code):
         site_name = Sites.get_text(site_code)
         add_url = Sites.get_face_url(site_code) if self.face else ""
+        add_url += Sites.get_ccl_url(site_code) if self.ccl else ""
 
         try:
             proxy = None
@@ -241,6 +271,18 @@ class AutoCrawler:
 
             elif site_code == Sites.NAVER_FULL:
                 links = collect.naver_full(keyword, add_url)
+
+            elif site_code == Sites.UNSPLASH:
+                links = collect.unsplash(keyword, add_url)
+
+            elif site_code == Sites.UNSPLASH_FULL:
+                links = collect.unsplash_full(keyword, add_url)
+
+            elif site_code == Sites.FLICKR:
+                links = collect.flickr(keyword, add_url)
+
+            elif site_code == Sites.FLICKR_FULL:
+                links = collect.flickr_full(keyword, add_url)
 
             else:
                 print('Invalid Site Code')
@@ -267,7 +309,9 @@ class AutoCrawler:
             dir_name = '{}/{}'.format(self.download_path, keyword)
             google_done = os.path.exists(os.path.join(os.getcwd(), dir_name, 'google_done'))
             naver_done = os.path.exists(os.path.join(os.getcwd(), dir_name, 'naver_done'))
-            if google_done and naver_done and self.skip:
+            unsplash_done = os.path.exists(os.path.join(os.getcwd(), dir_name, 'unsplash_done'))
+            flickr_done = os.path.exists(os.path.join(os.getcwd(), dir_name, 'flickr_done'))
+            if google_done and naver_done and unsplash_done and flickr_done and self.skip:
                 print('Skipping done task {}'.format(dir_name))
                 continue
 
@@ -282,6 +326,18 @@ class AutoCrawler:
                     tasks.append([keyword, Sites.NAVER_FULL])
                 else:
                     tasks.append([keyword, Sites.NAVER])
+
+            if self.do_unsplash and not unsplash_done:
+                if self.full_resolution:
+                    tasks.append([keyword, Sites.UNSPLASH_FULL])
+                else:
+                    tasks.append([keyword, Sites.UNSPLASH])
+            
+            if self.do_flickr and not flickr_done:
+                if self.full_resolution:
+                    tasks.append([keyword, Sites.FLICKR_FULL])
+                else:
+                    tasks.append([keyword, Sites.FLICKR])
 
         pool = Pool(self.n_threads)
         pool.map_async(self.download, tasks)
@@ -342,11 +398,14 @@ if __name__ == '__main__':
     parser.add_argument('--skip', type=str, default='true',
                         help='Skips keyword already downloaded before. This is needed when re-downloading.')
     parser.add_argument('--threads', type=int, default=4, help='Number of threads to download.')
-    parser.add_argument('--google', type=str, default='true', help='Download from google.com (boolean)')
-    parser.add_argument('--naver', type=str, default='true', help='Download from naver.com (boolean)')
+    parser.add_argument('--google', type=str, default='false', help='Download from google.com (boolean)')
+    parser.add_argument('--naver', type=str, default='false', help='Download from naver.com (boolean)')
+    parser.add_argument('--unsplash', type=str, default='false', help='Download from unsplash.com (boolean)')
+    parser.add_argument('--flickr', type=str, default='true', help='Download from flickr.com (boolean)')
     parser.add_argument('--full', type=str, default='false',
                         help='Download full resolution image instead of thumbnails (slow)')
     parser.add_argument('--face', type=str, default='false', help='Face search mode')
+    parser.add_argument('--ccl', type=str, default='false', help='CCL(Creative Commons License) search mode')
     parser.add_argument('--no_gui', type=str, default='auto',
                         help='No GUI mode. Acceleration for full_resolution mode. '
                              'But unstable on thumbnail mode. '
@@ -362,8 +421,11 @@ if __name__ == '__main__':
     _threads = args.threads
     _google = False if str(args.google).lower() == 'false' else True
     _naver = False if str(args.naver).lower() == 'false' else True
+    _unsplash = False if str(args.unsplash).lower() == 'false' else True
+    _flickr = False if str(args.flickr).lower() == 'false' else True
     _full = False if str(args.full).lower() == 'false' else True
     _face = False if str(args.face).lower() == 'false' else True
+    _ccl = False if str(args.ccl).lower() == 'false' else True
     _limit = int(args.limit)
     _proxy_list = args.proxy_list.split(',')
 
@@ -376,10 +438,10 @@ if __name__ == '__main__':
         _no_gui = False
 
     print(
-        'Options - skip:{}, threads:{}, google:{}, naver:{}, full_resolution:{}, face:{}, no_gui:{}, limit:{}, _proxy_list:{}'
-            .format(_skip, _threads, _google, _naver, _full, _face, _no_gui, _limit, _proxy_list))
+        'Options - skip:{}, threads:{}, google:{}, naver:{}, unsplash:{}, flickr:{}, full_resolution:{}, face:{}, no_gui:{}, limit:{}, _proxy_list:{}'
+            .format(_skip, _threads, _google, _naver, _unsplash, _flickr, _full, _face, _ccl, _no_gui, _limit, _proxy_list))
 
     crawler = AutoCrawler(skip_already_exist=_skip, n_threads=_threads,
-                          do_google=_google, do_naver=_naver, full_resolution=_full,
-                          face=_face, no_gui=_no_gui, limit=_limit, proxy_list=_proxy_list)
+                          do_google=_google, do_naver=_naver, do_unsplash=_unsplash, do_flickr=_flickr,
+                          full_resolution=_full, face=_face, no_gui=_no_gui, limit=_limit, proxy_list=_proxy_list)
     crawler.do_crawling()

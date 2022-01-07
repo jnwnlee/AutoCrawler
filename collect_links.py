@@ -23,6 +23,7 @@ import platform
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.action_chains import ActionChains
 from webdriver_manager.chrome import ChromeDriverManager
 import os.path as osp
 
@@ -91,6 +92,7 @@ class CollectLinks:
             self.highlight(elem)
         except Exception as e:
             print('Click time out - {}'.format(xpath))
+            print('Exception {}'.format(e))
             print('Refreshing browser...')
             self.browser.refresh()
             time.sleep(2)
@@ -197,10 +199,120 @@ class CollectLinks:
 
         return links
 
+    def unsplash(self, keyword, add_url="", srcset_idx=-9):
+        self.browser.get("https://unsplash.com/s/photos/{}".format(keyword)) # , add_url
+
+        time.sleep(1)
+
+        print('Scrolling down')
+
+        elem = self.browser.find_element_by_tag_name("body")
+
+        for i in range(60):
+            elem.send_keys(Keys.PAGE_DOWN)
+            time.sleep(0.2)
+
+        try:
+            # You may need to change this. Because google image changes rapidly.
+            # btn_more = self.browser.find_element(By.XPATH, '//input[@value="결과 더보기"]')
+            # self.wait_and_click('//input[@id="smb"]')
+            # self.wait_and_click('//div[@class="gDCZZ"]/button')
+            button = self.browser.find_elements(By.XPATH, '//div[@class="gDCZZ"]/button')
+            time.sleep(1)
+            button[0].click()
+            self.highlight(button[0])
+            print("clicked!!!!!")
+
+            for i in range(60):
+                elem.send_keys(Keys.PAGE_DOWN)
+                time.sleep(0.2)
+
+        except ElementNotVisibleException:
+            pass
+        
+        photo_grid_boxes = self.browser.find_elements(By.XPATH, '//div[@class="ripi16"]/figure[@itemprop="image"]')
+
+        print('Scraping links')
+
+        links = []
+
+        for box in photo_grid_boxes:
+            try:
+                imgs = box.find_elements(By.XPATH, '//img[@class="YVj9w"]') # By.TAG_NAME, 'img')
+
+                for img in imgs:
+                    # self.highlight(img)
+                    src = img.get_attribute("srcset")
+                    print("unsplash srcset", src)
+                    src = src[srcset_idx] # 800w
+
+                    # Google seems to preload 20 images as base64
+                    if str(src).startswith('data:'):
+                        src = img.get_attribute("data-iurl")
+                    links.append(src)
+
+            except Exception as e:
+                print('[Exception occurred while collecting links from unsplash] {}'.format(e))
+
+        links = self.remove_duplicates(links)
+
+        print('Collect links done. Site: {}, Keyword: {}, Total: {}'.format('unsplash', keyword, len(links)))
+        self.browser.close()
+
+        return links
+
+    def flickr(self, keyword, add_url=""):
+        self.browser.get("https://www.flickr.com/search/?text={}&media=photos{}".format(keyword, add_url))
+
+        time.sleep(1)
+
+        print('Scrolling down')
+
+        elem = self.browser.find_element_by_tag_name("body")
+
+        for i in range(60):
+            elem.send_keys(Keys.PAGE_DOWN)
+            time.sleep(0.2)
+
+        button = self.browser.find_element_by_xpath('//div[@class="infinite-scroll-load-more"]/button')
+        time.sleep(1)
+        self.browser.execute_script("arguments[0].click();", button)
+        # ActionChains(self.browser).move_to_element(button).click(button).perform()
+        self.highlight(button)
+
+        for i in range(60):
+            elem.send_keys(Keys.PAGE_DOWN)
+            time.sleep(0.2)
+
+        time.sleep(2)
+        imgs = self.browser.find_elements(By.XPATH,
+                                          '//div[@class="view photo-list-photo-view requiredToShowOnServer awake"]')
+
+        print('Scraping links')
+
+        links = []
+
+        for img in imgs:
+            try:
+                src = img.get_attribute('style').split('background-image: url("')[-1]
+                src = ''.join(src[:-3]) # get_attribute("style")["background-image"]
+                if not str(src).startswith('https:'):
+                    src = "https:" + str(src)
+                    links.append(src)
+            except Exception as e:
+                print('[Exception occurred while collecting links from flickr] {}'.format(e))
+
+        links = self.remove_duplicates(links)
+
+        print('Collect links done. Site: {}, Keyword: {}, Total: {}'.format('flickr', keyword, len(links)))
+        self.browser.close()
+
+        return links
+
     def google_full(self, keyword, add_url=""):
         print('[Full Resolution Mode]')
 
-        self.browser.get("https://www.google.com/search?q={}&tbm=isch{}".format(keyword, add_url))
+        self.browser.get("https://www.google.com/search?q={}&tbm=isch{}&tbs=il:cl".format(keyword, add_url))
         time.sleep(1)
 
         elem = self.browser.find_element_by_tag_name("body")
@@ -269,7 +381,7 @@ class CollectLinks:
         print('[Full Resolution Mode]')
 
         self.browser.get(
-            "https://search.naver.com/search.naver?where=image&sm=tab_jum&query={}{}".format(keyword, add_url))
+            "https://search.naver.com/search.naver?where=image&sm=tab_jum&query={}{}&ccl=1".format(keyword, add_url))
         time.sleep(1)
 
         elem = self.browser.find_element_by_tag_name("body")
@@ -324,6 +436,9 @@ class CollectLinks:
         self.browser.close()
 
         return links
+
+    def unsplash_full(self, keyword, add_url=""):
+        return self.unsplash(keyword, add_url, srcset_idx=-1)
 
 
 if __name__ == '__main__':
