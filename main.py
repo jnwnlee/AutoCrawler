@@ -261,28 +261,28 @@ class AutoCrawler:
             print('Collecting links... {} from {}'.format(keyword, site_name))
 
             if site_code == Sites.GOOGLE:
-                links = collect.google(keyword, add_url)
+                links = collect.google(keyword, add_url, self.limit)
 
             elif site_code == Sites.NAVER:
-                links = collect.naver(keyword, add_url)
+                links = collect.naver(keyword, add_url, self.limit)
 
             elif site_code == Sites.GOOGLE_FULL:
-                links = collect.google_full(keyword, add_url)
+                links = collect.google_full(keyword, add_url, self.limit)
 
             elif site_code == Sites.NAVER_FULL:
-                links = collect.naver_full(keyword, add_url)
+                links = collect.naver_full(keyword, add_url, self.limit)
 
             elif site_code == Sites.UNSPLASH:
-                links = collect.unsplash(keyword, add_url)
+                links = collect.unsplash(keyword, add_url, self.limit)
 
             elif site_code == Sites.UNSPLASH_FULL:
-                links = collect.unsplash_full(keyword, add_url)
+                links = collect.unsplash_full(keyword, add_url, self.limit)
 
             elif site_code == Sites.FLICKR:
-                links = collect.flickr(keyword, add_url)
+                links = collect.flickr(keyword, add_url, self.limit)
 
             elif site_code == Sites.FLICKR_FULL:
-                links = collect.flickr_full(keyword, add_url)
+                links = collect.flickr_full(keyword, add_url, self.limit)
 
             else:
                 print('Invalid Site Code')
@@ -400,8 +400,8 @@ if __name__ == '__main__':
     parser.add_argument('--threads', type=int, default=4, help='Number of threads to download.')
     parser.add_argument('--google', type=str, default='false', help='Download from google.com (boolean)')
     parser.add_argument('--naver', type=str, default='false', help='Download from naver.com (boolean)')
-    parser.add_argument('--unsplash', type=str, default='false', help='Download from unsplash.com (boolean)')
-    parser.add_argument('--flickr', type=str, default='true', help='Download from flickr.com (boolean)')
+    parser.add_argument('--unsplash', type=str, default='true', help='Download from unsplash.com (boolean)')
+    parser.add_argument('--flickr', type=str, default='false', help='Download from flickr.com (boolean)')
     parser.add_argument('--full', type=str, default='false',
                         help='Download full resolution image instead of thumbnails (slow)')
     parser.add_argument('--face', type=str, default='false', help='Face search mode')
@@ -438,7 +438,7 @@ if __name__ == '__main__':
         _no_gui = False
 
     print(
-        'Options - skip:{}, threads:{}, google:{}, naver:{}, unsplash:{}, flickr:{}, full_resolution:{}, face:{}, no_gui:{}, limit:{}, _proxy_list:{}'
+        'Options - skip:{}, threads:{}, google:{}, naver:{}, unsplash:{}, flickr:{}, full_resolution:{}, face:{}, ccl:{}, no_gui:{}, limit:{}, _proxy_list:{}'
             .format(_skip, _threads, _google, _naver, _unsplash, _flickr, _full, _face, _ccl, _no_gui, _limit, _proxy_list))
 
     crawler = AutoCrawler(skip_already_exist=_skip, n_threads=_threads,

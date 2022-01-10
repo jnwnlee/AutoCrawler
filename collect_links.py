@@ -50,6 +50,7 @@ class CollectLinks:
         chrome_options = Options()
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
         if no_gui:
             chrome_options.add_argument('--headless')
         if proxy:
@@ -88,8 +89,8 @@ class CollectLinks:
         try:
             w = WebDriverWait(self.browser, 15)
             elem = w.until(EC.element_to_be_clickable((By.XPATH, xpath)))
-            elem.click()
             self.highlight(elem)
+            elem.click()
         except Exception as e:
             print('Click time out - {}'.format(xpath))
             print('Exception {}'.format(e))
@@ -108,7 +109,7 @@ class CollectLinks:
     def remove_duplicates(_list):
         return list(dict.fromkeys(_list))
 
-    def google(self, keyword, add_url=""):
+    def google(self, keyword, add_url="", max_count=10000):
         self.browser.get("https://www.google.com/search?q={}&source=lnms&tbm=isch{}".format(keyword, add_url))
 
         time.sleep(1)
@@ -127,15 +128,16 @@ class CollectLinks:
             # self.wait_and_click('//input[@id="smb"]')
             self.wait_and_click('//input[@type="button"]')
 
-            for i in range(60):
-                elem.send_keys(Keys.PAGE_DOWN)
-                time.sleep(0.2)
-
         except ElementNotVisibleException:
             pass
 
-        photo_grid_boxes = self.browser.find_elements(By.XPATH, '//div[@class="bRMDJf islir"]')
-
+        while True:
+            for i in range(60):
+                elem.send_keys(Keys.PAGE_DOWN)
+                time.sleep(0.2)
+            photo_grid_boxes = self.browser.find_elements(By.XPATH, '//div[@class="bRMDJf islir"]')
+            if len(photo_grid_boxes) > max_count: break
+        
         print('Scraping links')
 
         links = []
@@ -163,7 +165,7 @@ class CollectLinks:
 
         return links
 
-    def naver(self, keyword, add_url=""):
+    def naver(self, keyword, add_url="", max_count=10000):
         self.browser.get(
             "https://search.naver.com/search.naver?where=image&sm=tab_jum&query={}{}".format(keyword, add_url))
 
@@ -173,12 +175,15 @@ class CollectLinks:
 
         elem = self.browser.find_element_by_tag_name("body")
 
-        for i in range(60):
-            elem.send_keys(Keys.PAGE_DOWN)
-            time.sleep(0.2)
+        while True:
+            for i in range(60):
+                elem.send_keys(Keys.PAGE_DOWN)
+                time.sleep(0.2)
 
-        imgs = self.browser.find_elements(By.XPATH,
-                                          '//div[@class="photo_bx api_ani_send _photoBox"]//img[@class="_image _listImage"]')
+            imgs = self.browser.find_elements(By.XPATH,
+                                            '//div[@class="photo_bx api_ani_send _photoBox"]//img[@class="_image _listImage"]')
+            if len(imgs) > max_count: break
+            
 
         print('Scraping links')
 
@@ -199,7 +204,7 @@ class CollectLinks:
 
         return links
 
-    def unsplash(self, keyword, add_url="", srcset_idx=-9):
+    def unsplash(self, keyword, add_url="", srcset_idx=0, max_count=10000):
         self.browser.get("https://unsplash.com/s/photos/{}".format(keyword)) # , add_url
 
         time.sleep(1)
@@ -218,19 +223,37 @@ class CollectLinks:
             # self.wait_and_click('//input[@id="smb"]')
             # self.wait_and_click('//div[@class="gDCZZ"]/button')
             button = self.browser.find_elements(By.XPATH, '//div[@class="gDCZZ"]/button')
-            time.sleep(1)
-            button[0].click()
             self.highlight(button[0])
-            print("clicked!!!!!")
-
-            for i in range(60):
-                elem.send_keys(Keys.PAGE_DOWN)
-                time.sleep(0.2)
-
+            time.sleep(1)
+            button[0].send_keys(Keys.ENTER)
         except ElementNotVisibleException:
             pass
         
-        photo_grid_boxes = self.browser.find_elements(By.XPATH, '//div[@class="ripi16"]/figure[@itemprop="image"]')
+        for i in range(60):
+            elem.send_keys(Keys.PAGE_DOWN)
+            time.sleep(0.2)
+        time.sleep(2)
+        
+        reached_page_end = False
+        last_height = self.browser.execute_script("return document.body.scrollHeight")
+        
+        while True:
+            for i in range(50):
+                elem.send_keys(Keys.PAGE_DOWN)
+                time.sleep(0.2)
+            time.sleep(3)
+
+            photo_grid_boxes = self.browser.find_elements(By.XPATH, '//div[@class="ripi6"]//figure[@itemprop="image"]')
+            new_height = self.browser.execute_script("return document.body.scrollHeight")
+            if last_height == new_height:
+                reached_page_end = True
+            else:
+                last_height = new_height
+
+            if reached_page_end or len(photo_grid_boxes) > max_count:
+                break
+            else:
+                continue
 
         print('Scraping links')
 
@@ -238,13 +261,13 @@ class CollectLinks:
 
         for box in photo_grid_boxes:
             try:
-                imgs = box.find_elements(By.XPATH, '//img[@class="YVj9w"]') # By.TAG_NAME, 'img')
+                imgs = box.find_elements(By.XPATH, './/img[@class="YVj9w"]') # By.TAG_NAME, 'img')
 
                 for img in imgs:
                     # self.highlight(img)
                     src = img.get_attribute("srcset")
-                    print("unsplash srcset", src)
-                    src = src[srcset_idx] # 800w
+                    src = src.split(', ')[srcset_idx].split(' ')[:-1] # 800w
+                    src = ' '.join(src)
 
                     # Google seems to preload 20 images as base64
                     if str(src).startswith('data:'):
@@ -274,18 +297,49 @@ class CollectLinks:
             elem.send_keys(Keys.PAGE_DOWN)
             time.sleep(0.2)
 
-        button = self.browser.find_element_by_xpath('//div[@class="infinite-scroll-load-more"]/button')
-        time.sleep(1)
-        self.browser.execute_script("arguments[0].click();", button)
+        try:
+            button = self.browser.find_element_by_xpath('.//div[@class="infinite-scroll-load-more"]/button')
+            self.highlight(button)
+            time.sleep(1)
+            self.browser.execute_script("arguments[0].click();", button)
+        except:
+            pass
         # ActionChains(self.browser).move_to_element(button).click(button).perform()
-        self.highlight(button)
+        
 
-        for i in range(60):
+        for i in range(100):
             elem.send_keys(Keys.PAGE_DOWN)
             time.sleep(0.2)
 
         time.sleep(2)
         imgs = self.browser.find_elements(By.XPATH,
+                                          '//div[@class="view photo-list-photo-view requiredToShowOnServer awake"]')
+        
+        reached_page_end = False
+        last_height = self.browser.execute_script("return document.body.scrollHeight")
+        
+        while len(imgs) < 10000:
+            for i in range(50):
+                elem.send_keys(Keys.PAGE_DOWN)
+                time.sleep(0.2)
+            time.sleep(5)
+            new_height = self.browser.execute_script("return document.body.scrollHeight")
+            if last_height == new_height:
+                reached_page_end = True
+            else:
+                last_height = new_height
+            try:
+                button = self.browser.find_element_by_xpath('.//div[@class="infinite-scroll-load-more"]/button')
+            except Exception as e:
+                print(e)
+                if reached_page_end:
+                    break
+                else:
+                    continue
+            
+            self.browser.execute_script("arguments[0].click();", button)
+
+            imgs = self.browser.find_elements(By.XPATH,
                                           '//div[@class="view photo-list-photo-view requiredToShowOnServer awake"]')
 
         print('Scraping links')
@@ -309,7 +363,7 @@ class CollectLinks:
 
         return links
 
-    def google_full(self, keyword, add_url=""):
+    def google_full(self, keyword, add_url="", max_count=10000):
         print('[Full Resolution Mode]')
 
         self.browser.get("https://www.google.com/search?q={}&tbm=isch{}&tbs=il:cl".format(keyword, add_url))
@@ -365,7 +419,7 @@ class CollectLinks:
                 scroll_patience = 0
                 last_scroll = scroll
 
-            if scroll_patience >= 30:
+            if scroll_patience >= 30 or len(links) > max_count:
                 break
 
             elem.send_keys(Keys.RIGHT)
@@ -377,7 +431,7 @@ class CollectLinks:
 
         return links
 
-    def naver_full(self, keyword, add_url=""):
+    def naver_full(self, keyword, add_url="", max_count=10000):
         print('[Full Resolution Mode]')
 
         self.browser.get(
@@ -424,7 +478,7 @@ class CollectLinks:
                 scroll_patience = 0
                 last_scroll = scroll
 
-            if scroll_patience >= 100:
+            if scroll_patience >= 100 or len(links) > max_count:
                 break
 
             elem.send_keys(Keys.RIGHT)
@@ -437,9 +491,8 @@ class CollectLinks:
 
         return links
 
-    def unsplash_full(self, keyword, add_url=""):
-        return self.unsplash(keyword, add_url, srcset_idx=-1)
-
+    def unsplash_full(self, keyword, add_url="", max_count=10000):
+        return self.unsplash(keyword, add_url, srcset_idx=-1, max_count=max_count)
 
 if __name__ == '__main__':
     collect = CollectLinks()
