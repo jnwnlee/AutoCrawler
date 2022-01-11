@@ -20,7 +20,8 @@ import shutil
 from multiprocessing import Pool
 import argparse
 from collect_links import CollectLinks
-import imghdr
+# import imghdr
+from PIL import Image
 import base64
 from pathlib import Path
 import random
@@ -145,7 +146,9 @@ class AutoCrawler:
 
     @staticmethod
     def validate_image(path):
-        ext = imghdr.what(path)
+        # ext = imghdr.what(path)
+        img = Image.open(path)
+        ext = img.format.lower()
         if ext == 'jpeg':
             ext = 'jpg'
         return ext  # returns None if not valid
@@ -193,7 +196,7 @@ class AutoCrawler:
         return data
 
     def download_images(self, keyword, links, site_name, max_count=0):
-        self.make_dir('{}/{}'.format(self.download_path, keyword.replace('"', '')))
+        self.make_dir('{}/{}/{}'.format(self.download_path, keyword.replace('"', ''), site_name))
         total = len(links)
         success_count = 0
 
@@ -220,7 +223,7 @@ class AutoCrawler:
                     ext = self.get_extension_from_link(link)
                     is_base64 = False
 
-                no_ext_path = '{}/{}/{}_{}'.format(self.download_path.replace('"', ''), keyword, site_name,
+                no_ext_path = '{}/{}/{}/{}'.format(self.download_path.replace('"', ''), keyword, site_name,
                                                    str(index).zfill(4))
                 path = no_ext_path + '.' + ext
                 self.save_object_to_file(response, path, is_base64=is_base64)
@@ -354,9 +357,11 @@ class AutoCrawler:
 
         dict_num_files = {}
 
-        for dir in self.all_dirs(self.download_path):
-            n_files = len(self.all_files(dir))
-            dict_num_files[dir] = n_files
+        for keyword_dir in self.all_dirs(self.download_path):
+            n_files = 0
+            for site_dir in self.all_dirs(keyword_dir):
+                n_files += len(self.all_files(site_dir))
+            dict_num_files[keyword_dir] = n_files
 
         avg = 0
         for dir, n_files in dict_num_files.items():
@@ -400,8 +405,8 @@ if __name__ == '__main__':
     parser.add_argument('--threads', type=int, default=4, help='Number of threads to download.')
     parser.add_argument('--google', type=str, default='false', help='Download from google.com (boolean)')
     parser.add_argument('--naver', type=str, default='false', help='Download from naver.com (boolean)')
-    parser.add_argument('--unsplash', type=str, default='true', help='Download from unsplash.com (boolean)')
-    parser.add_argument('--flickr', type=str, default='false', help='Download from flickr.com (boolean)')
+    parser.add_argument('--unsplash', type=str, default='false', help='Download from unsplash.com (boolean)')
+    parser.add_argument('--flickr', type=str, default='true', help='Download from flickr.com (boolean)')
     parser.add_argument('--full', type=str, default='false',
                         help='Download full resolution image instead of thumbnails (slow)')
     parser.add_argument('--face', type=str, default='false', help='Face search mode')

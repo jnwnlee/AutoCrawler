@@ -284,7 +284,7 @@ class CollectLinks:
 
         return links
 
-    def flickr(self, keyword, add_url=""):
+    def flickr(self, keyword, add_url="", max_count=10000, full=False):
         self.browser.get("https://www.flickr.com/search/?text={}&media=photos{}".format(keyword, add_url))
 
         time.sleep(1)
@@ -297,69 +297,139 @@ class CollectLinks:
             elem.send_keys(Keys.PAGE_DOWN)
             time.sleep(0.2)
 
-        try:
-            button = self.browser.find_element_by_xpath('.//div[@class="infinite-scroll-load-more"]/button')
-            self.highlight(button)
-            time.sleep(1)
-            self.browser.execute_script("arguments[0].click();", button)
-        except:
-            pass
-        # ActionChains(self.browser).move_to_element(button).click(button).perform()
+        # try:
+        #     button = self.browser.find_element_by_xpath('.//div[@class="infinite-scroll-load-more"]/button')
+        #     self.highlight(button)
+        #     time.sleep(1)
+        #     self.browser.execute_script("arguments[0].click();", button)
+        # except:
+        #     pass
+        # # ActionChains(self.browser).move_to_element(button).click(button).perform()
         
 
-        for i in range(100):
-            elem.send_keys(Keys.PAGE_DOWN)
-            time.sleep(0.2)
+        # for i in range(100):
+        #     elem.send_keys(Keys.PAGE_DOWN)
+        #     time.sleep(0.2)
 
         time.sleep(2)
-        imgs = self.browser.find_elements(By.XPATH,
-                                          '//div[@class="view photo-list-photo-view requiredToShowOnServer awake"]')
         
         reached_page_end = False
         last_height = self.browser.execute_script("return document.body.scrollHeight")
         
-        while len(imgs) < 10000:
+        while True:
+            imgs = self.browser.find_elements(By.XPATH,
+                                          '//div[@class="view photo-list-photo-view awake"]')
+            if len(imgs) > max_count:
+                break
+            
             for i in range(50):
                 elem.send_keys(Keys.PAGE_DOWN)
                 time.sleep(0.2)
-            time.sleep(5)
+            time.sleep(3)
             new_height = self.browser.execute_script("return document.body.scrollHeight")
             if last_height == new_height:
                 reached_page_end = True
             else:
                 last_height = new_height
+            
             try:
                 button = self.browser.find_element_by_xpath('.//div[@class="infinite-scroll-load-more"]/button')
+                self.browser.execute_script("arguments[0].click();", button)
             except Exception as e:
                 print(e)
                 if reached_page_end:
                     break
-                else:
-                    continue
-            
-            self.browser.execute_script("arguments[0].click();", button)
 
-            imgs = self.browser.find_elements(By.XPATH,
-                                          '//div[@class="view photo-list-photo-view requiredToShowOnServer awake"]')
+        imgs = self.browser.find_elements(By.XPATH,
+                                          '//div[@class="view photo-list-photo-view awake"]')
 
         print('Scraping links')
 
         links = []
 
-        for img in imgs:
-            try:
-                src = img.get_attribute('style').split('background-image: url("')[-1]
-                src = ''.join(src[:-3]) # get_attribute("style")["background-image"]
-                if not str(src).startswith('https:'):
-                    src = "https:" + str(src)
-                    links.append(src)
-            except Exception as e:
-                print('[Exception occurred while collecting links from flickr] {}'.format(e))
+        if full:
+            print('[Full Resolution Mode]')
+
+            # self.wait_and_click('//div[@class="view photo-list-photo-view awake"]//a')
+            # time.sleep(1)
+            first_img = self.browser.find_element_by_xpath('//div[@class="view photo-list-photo-view awake"]//a')
+            self.highlight(first_img)
+            time.sleep(2)
+            self.browser.execute_script("arguments[0].click();", first_img)
+
+            while True:
+                try:
+                    w = WebDriverWait(self.browser, 5)
+
+                    xpath = '//div[@class="view photo-well-scrappy-view"]//img[@class="main-photo"]'
+                    img_low = w.until(EC.presence_of_element_located((By.XPATH, xpath)))
+                    src_low = img_low.get_attribute('src')
+                    src_low = src_low.split('.')
+                    src_low[-2] = '_'.join(src_low[-2].split('_')[:-1])
+                    src_low = '.'.join(src_low)
+
+                    w = WebDriverWait(self.browser, 3)
+                    xpath = '//div[@class="engagement-item download "]//i[@class="ui-icon-download"]'
+                    down_icon = w.until(EC.presence_of_element_located((By.XPATH, xpath)))
+                    self.highlight(down_icon)
+                    down_icon.click()
+
+                except StaleElementReferenceException:
+                    # print('[Expected Exception - StaleElementReferenceException]')
+                    pass
+                except Exception as e:
+                    print('[Exception occurred while collecting links from flickr_full] {}'.format(e))
+                    time.sleep(1)
+                else:
+                    try:
+                        xpath = '//div[@class="content html-only auto-size"]'
+                        link_list = w.until(EC.presence_of_element_located((By.XPATH, xpath)))
+                        self.highlight(link_list)
+                        a_link = link_list.find_element((By.XPATH, '//li[@class="원본"]/a'))
+                        self.highlight(a_link)
+                        
+                        src = a_link.get_attribute('href')
+                    except:
+                        src = src_low
+                        escape = self.browser.find_element_by_xpath('//div[@class="fluid-modal-overlay transparent"]')
+                        escape.click()
+
+                    if src is not None:
+                        if not str(src).startswith('https:'):
+                            src = "https:" + str(src)
+                        links.append(src)
+                        print('%d: %s' % (len(links), src))
+
+                if len(links) > max_count or (not EC.presence_of_element_located((By.XPATH, '//a[@class="navigate-target navigate-next"]'))):
+                    break
+
+                elem.send_keys(Keys.RIGHT)
+                while True:
+                    loader_bar = self.browser.find_element_by_xpath('//div[@class="loader-bar"]')
+                    if loader_bar.get_attribute('display') == None:
+                        time.sleep(0.1)
+                        break
+                # time.sleep(0.5)
+        else:
+            for img in imgs:
+                try:
+                    src = img.get_attribute('style').split('background-image: url("')[-1]
+                    src = ''.join(src[:-3]) # get_attribute("style")["background-image"]
+                    if not str(src).startswith('https:'):
+                        src = "https:" + str(src)
+                        links.append(src)
+
+                except Exception as e:
+                    print('[Exception occurred while collecting links from flickr] {}'.format(e))
 
         links = self.remove_duplicates(links)
 
-        print('Collect links done. Site: {}, Keyword: {}, Total: {}'.format('flickr', keyword, len(links)))
+        if full:
+            print('Collect links done. Site: {}, Keyword: {}, Total: {}'.format('flickr_full', keyword, len(links)))
+        else:
+            print('Collect links done. Site: {}, Keyword: {}, Total: {}'.format('flickr', keyword, len(links)))
         self.browser.close()
+        print('# links', len(links))
 
         return links
 
@@ -493,6 +563,10 @@ class CollectLinks:
 
     def unsplash_full(self, keyword, add_url="", max_count=10000):
         return self.unsplash(keyword, add_url, srcset_idx=-1, max_count=max_count)
+    
+    def flickr_full(self, keyword, add_url="", max_count=10000):
+        return self.flickr(keyword, add_url, max_count, full=True)
+        
 
 if __name__ == '__main__':
     collect = CollectLinks()

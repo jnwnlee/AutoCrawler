@@ -1,2 +1,28 @@
-cat
-dog
+car
+car chill
+chill
+chill dance
+chill night
+chill party
+chill summer
+chill work
+club
+dance
+dance gym
+dance party
+dance summer
+gym
+gym party
+happy
+night
+party
+party running
+party summer
+party work
+relax
+running
+sad
+sleep
+summer
+work
+workout
