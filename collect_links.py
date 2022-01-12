@@ -222,17 +222,13 @@ class CollectLinks:
             # btn_more = self.browser.find_element(By.XPATH, '//input[@value="결과 더보기"]')
             # self.wait_and_click('//input[@id="smb"]')
             # self.wait_and_click('//div[@class="gDCZZ"]/button')
-            button = self.browser.find_elements(By.XPATH, '//div[@class="gDCZZ"]/button')
-            self.highlight(button[0])
+            button = self.browser.find_element_by_xpath('//div[@class="gDCZZ"]//button')
+            self.highlight(button)
             time.sleep(1)
-            button[0].send_keys(Keys.ENTER)
-        except ElementNotVisibleException:
+            button.send_keys(Keys.ENTER)
+        except ElementNotVisibleException as e:
+            print(e)
             pass
-        
-        for i in range(60):
-            elem.send_keys(Keys.PAGE_DOWN)
-            time.sleep(0.2)
-        time.sleep(2)
         
         reached_page_end = False
         last_height = self.browser.execute_script("return document.body.scrollHeight")
@@ -436,7 +432,7 @@ class CollectLinks:
     def google_full(self, keyword, add_url="", max_count=10000):
         print('[Full Resolution Mode]')
 
-        self.browser.get("https://www.google.com/search?q={}&tbm=isch{}&tbs=il:cl".format(keyword, add_url))
+        self.browser.get("https://www.google.com/search?q={}&tbm=isch{}".format(keyword, add_url))
         time.sleep(1)
 
         elem = self.browser.find_element_by_tag_name("body")
@@ -505,7 +501,7 @@ class CollectLinks:
         print('[Full Resolution Mode]')
 
         self.browser.get(
-            "https://search.naver.com/search.naver?where=image&sm=tab_jum&query={}{}&ccl=1".format(keyword, add_url))
+            "https://search.naver.com/search.naver?where=image&sm=tab_jum&query={}{}".format(keyword, add_url))
         time.sleep(1)
 
         elem = self.browser.find_element_by_tag_name("body")
