@@ -226,27 +226,35 @@ class CollectLinks:
             self.highlight(button)
             time.sleep(1)
             button.send_keys(Keys.ENTER)
-        except ElementNotVisibleException as e:
+        except Exception as e:
             print(e)
-            pass
+            # pass
         
-        reached_page_end = False
-        last_height = self.browser.execute_script("return document.body.scrollHeight")
+        # reached_page_end = False
+        # last_height = self.browser.execute_script("return document.body.scrollHeight")
         
         while True:
-            for i in range(50):
-                elem.send_keys(Keys.PAGE_DOWN)
-                time.sleep(0.2)
-            time.sleep(3)
+            # for i in range(30):
+            #     elem.send_keys(Keys.PAGE_DOWN)
+            #     time.sleep(0.4)
+            # time.sleep(1)
 
             photo_grid_boxes = self.browser.find_elements(By.XPATH, '//div[@class="ripi6"]//figure[@itemprop="image"]')
-            new_height = self.browser.execute_script("return document.body.scrollHeight")
-            if last_height == new_height:
-                reached_page_end = True
-            else:
-                last_height = new_height
+            # new_height = self.browser.execute_script("return document.body.scrollHeight")
+            # if last_height == new_height:
+            #     reached_page_end = True
+            # else:
+            #     last_height = new_height 
 
-            if reached_page_end or len(photo_grid_boxes) > max_count:
+            try:
+                loading = self.browser.find_element_by_xpath('//div[@class="MvqOi"]') # loading icon
+                self.browser.execute_script("arguments[0].scrollIntoView(true);", loading)
+                elem.send_keys(Keys.PAGE_UP)
+                time.sleep(1)
+            except:
+                break
+
+            if len(photo_grid_boxes) > max_count:
                 break
             else:
                 continue
@@ -309,32 +317,50 @@ class CollectLinks:
 
         time.sleep(2)
         
-        reached_page_end = False
-        last_height = self.browser.execute_script("return document.body.scrollHeight")
+        # reached_page_end = False
+        # last_height = self.browser.execute_script("return document.body.scrollHeight")
         
         while True:
             imgs = self.browser.find_elements(By.XPATH,
                                           '//div[@class="view photo-list-photo-view awake"]')
+            
             if len(imgs) > max_count:
                 break
             
-            for i in range(50):
+            self.browser.execute_script("arguments[0].scrollIntoView(true);", imgs[-1])
+            
+            last_height = self.browser.execute_script("return document.body.scrollHeight")
+            time.sleep(1)
+
+            for i in range(2):
                 elem.send_keys(Keys.PAGE_DOWN)
                 time.sleep(0.2)
-            time.sleep(3)
+
             new_height = self.browser.execute_script("return document.body.scrollHeight")
-            if last_height == new_height:
-                reached_page_end = True
-            else:
-                last_height = new_height
+            
+            if not last_height == new_height:
+                continue
+            #     reached_page_end = True
+            # else:
+            #     last_height = new_height
             
             try:
-                button = self.browser.find_element_by_xpath('.//div[@class="infinite-scroll-load-more"]/button')
-                self.browser.execute_script("arguments[0].click();", button)
+                button = self.browser.find_element_by_xpath('//div[@class="infinite-scroll-load-more"]//button')
+                # self.browser.execute_script("arguments[0].click();", button)
+                button.send_keys(Keys.ENTER)
+                time.sleep(0.5)
             except Exception as e:
-                print(e)
-                if reached_page_end:
+                # print(e)
+                try:
+                    self.browser.find_element_by_xpath('//div[@class="flickr-dots"]')
+                except:
+                    print('No buttons and loading..')
+                    print(e)
                     break
+                else:
+                    while True:
+                        self.browser.find_element_by_xpath('//div[@class="flickr-dots"]')
+                    time.sleep(3)
 
         imgs = self.browser.find_elements(By.XPATH,
                                           '//div[@class="view photo-list-photo-view awake"]')
@@ -345,6 +371,7 @@ class CollectLinks:
 
         if full:
             print('[Full Resolution Mode]')
+            self.browser.maximize_window()
 
             # self.wait_and_click('//div[@class="view photo-list-photo-view awake"]//a')
             # time.sleep(1)
@@ -396,7 +423,13 @@ class CollectLinks:
                         links.append(src)
                         print('%d: %s' % (len(links), src))
 
-                if len(links) > max_count or (not EC.presence_of_element_located((By.XPATH, '//a[@class="navigate-target navigate-next"]'))):
+                if len(links) > max_count:
+                    break
+                try:
+                    self.browser.find_element_by_xpath('//a[@class="navigate-target navigate-next"]')
+                except:
+                    print('!!!!!!!!!!!!!')
+                    time.sleep(10)
                     break
 
                 elem.send_keys(Keys.RIGHT)
@@ -469,7 +502,7 @@ class CollectLinks:
 
                 if src is not None:
                     links.append(src)
-                    print('%d: %s' % (count, src))
+                    # print('%d: %s' % (count, src))
                     count += 1
 
             except StaleElementReferenceException:
@@ -485,7 +518,7 @@ class CollectLinks:
                 scroll_patience = 0
                 last_scroll = scroll
 
-            if scroll_patience >= 30 or len(links) > max_count:
+            if scroll_patience >= 50 or len(links) > max_count:
                 break
 
             elem.send_keys(Keys.RIGHT)
@@ -528,7 +561,7 @@ class CollectLinks:
 
                     if src not in links and src is not None:
                         links.append(src)
-                        print('%d: %s' % (count, src))
+                        # print('%d: %s' % (count, src))
                         count += 1
 
             except StaleElementReferenceException:

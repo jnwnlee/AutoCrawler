@@ -208,7 +208,7 @@ class AutoCrawler:
                 break
 
             try:
-                print('Downloading {} from {}: {} / {}'.format(keyword, site_name, success_count + 1, max_count))
+                print('Downloading {} from {}: {} / {}'.format(keyword, site_name, success_count + 1, total if total <= max_count else max_count))
 
                 if str(link).startswith('data:image/jpeg;base64'):
                     response = self.base64_to_object(link)
@@ -403,19 +403,19 @@ if __name__ == '__main__':
     parser.add_argument('--skip', type=str, default='true',
                         help='Skips keyword already downloaded before. This is needed when re-downloading.')
     parser.add_argument('--threads', type=int, default=4, help='Number of threads to download.')
-    parser.add_argument('--google', type=str, default='true', help='Download from google.com (boolean)')
-    parser.add_argument('--naver', type=str, default='true', help='Download from naver.com (boolean)')
-    parser.add_argument('--unsplash', type=str, default='false', help='Download from unsplash.com (boolean)')
+    parser.add_argument('--google', type=str, default='false', help='Download from google.com (boolean)')
+    parser.add_argument('--naver', type=str, default='false', help='Download from naver.com (boolean)')
+    parser.add_argument('--unsplash', type=str, default='true', help='Download from unsplash.com (boolean)')
     parser.add_argument('--flickr', type=str, default='false', help='Download from flickr.com (boolean)')
     parser.add_argument('--full', type=str, default='true',
                         help='Download full resolution image instead of thumbnails (slow)')
     parser.add_argument('--face', type=str, default='false', help='Face search mode')
-    parser.add_argument('--ccl', type=str, default='false', help='CCL(Creative Commons License) search mode')
+    parser.add_argument('--ccl', type=str, default='true', help='CCL(Creative Commons License) search mode')
     parser.add_argument('--no_gui', type=str, default='auto',
                         help='No GUI mode. Acceleration for full_resolution mode. '
                              'But unstable on thumbnail mode. '
                              'Default: "auto" - false if full=false, true if full=true')
-    parser.add_argument('--limit', type=int, default=0,
+    parser.add_argument('--limit', type=int, default=5000,
                         help='Maximum count of images to download per site. (0: infinite)')
     parser.add_argument('--proxy-list', type=str, default='',
                         help='The comma separated proxy list like: "socks://127.0.0.1:1080,http://127.0.0.1:1081". '
